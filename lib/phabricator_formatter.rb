@@ -10,15 +10,21 @@ class PhabricatorTestResult
   attr_accessor :coverage
   attr_accessor :engine
 
+  def initialize(name, result)
+    @name = name
+    @result = result
+  end
+
   def to_json(_generator)
     data = {
       name: @name,
-      result: @result,
+      result: @result
     }
 
+    # FIXME: use runtime access instead of manual labor?
     data[:namespace] = @namespace unless @namespace.nil?
     data[:duration] = @duration unless @duration.nil?
-    data[:details] = @details unless @duration.nil?
+    data[:details] = @details unless @details.nil?
     data[:coverage] = @coverage unless @coverage.nil?
     data[:path] = @path unless @path.nil?
     data[:engine] = @engine unless @engine.nil?
@@ -35,23 +41,35 @@ class PhabricatorFormatter < XCPretty::Formatter
     @results = []
     @cur_target = nil
     @cur_build_failures = []
+    @build_start_time = nil
+  end
+
+  def push(result)
+    @results.push(result)
   end
 
   def stop_build
     return if @cur_target.nil?
 
-    result = PhabricatorTestResult.new
-    result.name = @cur_target
-    result.result = @cur_build_failures.count.zero? ? 'pass' : 'broken'
-    result.details = @cur_build_failures.join("=================================\n")
+    no_errors = @cur_build_failures.count.zero?
+    @cur_target.result = no_errors ? :pass : :broken
+    @cur_target.details = @cur_build_failures.join("=======================\n") unless no_errors
+    @cur_target.duration = Time.now.to_f - @build_start_time
+    push(@cur_target)
 
-    @results.push(result)
+    @cur_target = nil
   end
 
   def start_build(target, project, configuration)
+    name = format('%s [%s]', target, configuration)
+    return if !@cur_target.nil? && @cur_target.name == name
+
     stop_build
-    @cur_target = format('%s[%s] (%s)', target, configuration, project)
+
+    @cur_target = PhabricatorTestResult.new(name, :broken)
+    @cur_target.namespace = format('Build %s', project)
     @cur_build_failures = []
+    @build_start_time = Time.now.to_f
   end
 
   def format_build_target(target, project, configuration)
@@ -65,22 +83,20 @@ class PhabricatorFormatter < XCPretty::Formatter
     EMPTY
   end
 
-  def push_result(name, result)
-    item = PhabricatorTestResult.new
-    item.name = name
-    item.result = result
-    @results.push(item)
-  end
-
-  def format_passing_test(suite, test, _time)
-    push_result(format('%s: %s', suite, test), 'pass')
+  def format_passing_test(suite, test, time)
+    result = PhabricatorTestResult.new(test, :pass)
+    result.duration = time.to_f
+    result.namespace = scrub(suite)
+    push(result)
     EMPTY
   end
 
   def format_failing_test(suite, test, reason, file_path)
-    name = format('%s: %s - %s (%s)', suite, test, reason, file_path)
-    push_result(name, 'fail')
-
+    result = PhabricatorTestResult.new(test, :fail)
+    result.namespace = scrub(suite)
+    result.details = reason
+    result.path = file_path
+    push(result)
     EMPTY
   end
 
@@ -126,7 +142,8 @@ class PhabricatorFormatter < XCPretty::Formatter
   end
 
   def scrub(text)
-    text.gsub(/\s/,'_').split('.').first
+    parts = text.gsub(/\s/,'_').split('.')
+    parts[1] || parts[0]
   end
 end
 
