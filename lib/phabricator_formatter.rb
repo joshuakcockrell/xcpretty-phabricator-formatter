@@ -3,22 +3,27 @@ require 'json'
 class PhabricatorTestResult
   attr_accessor :name
   attr_accessor :namespace
-  attr_accessor :link
   attr_accessor :result
   attr_accessor :duration
-  attr_accessor :extra
-  attr_accessor :userData
+  attr_accessor :details
+  attr_accessor :path
+  attr_accessor :coverage
+  attr_accessor :engine
 
   def to_json(_generator)
-    JSON.pretty_generate(
+    data = {
       name: @name,
-      namespace: @namespace,
-      link: @link,
       result: @result,
-      duration: @duration,
-      extra: @extra,
-      userData: @userData
-    )
+    }
+
+    data[:namespace] = @namespace unless @namespace.nil?
+    data[:duration] = @duration unless @duration.nil?
+    data[:details] = @details unless @duration.nil?
+    data[:coverage] = @coverage unless @coverage.nil?
+    data[:path] = @path unless @path.nil?
+    data[:engine] = @engine unless @engine.nil?
+
+    JSON.pretty_generate(data)
   end
 end
 
@@ -38,7 +43,7 @@ class PhabricatorFormatter < XCPretty::Formatter
     result = PhabricatorTestResult.new
     result.name = @cur_target
     result.result = @cur_build_failures.count.zero? ? 'pass' : 'broken'
-    result.userData = @cur_build_failures.join("=================================\n")
+    result.details = @cur_build_failures.join("=================================\n")
 
     @results.push(result)
   end
