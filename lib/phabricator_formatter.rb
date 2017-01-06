@@ -44,6 +44,11 @@ class PhabricatorFormatter < XCPretty::Formatter
     @build_start_time = nil
   end
 
+  def finish
+    stop_build
+    print JSON.pretty_generate(@results)
+  end
+
   def push(result)
     @results.push(result)
   end
@@ -128,6 +133,12 @@ class PhabricatorFormatter < XCPretty::Formatter
     EMPTY
   end
 
+  def format_file_missing_error(error, file_path)
+    msg = format('missing file %s: %s', file_path, error)
+    push_failure_message(msg)
+    EMPTY
+  end
+
   def format_warning(_message)
     EMPTY
   end
@@ -137,8 +148,7 @@ class PhabricatorFormatter < XCPretty::Formatter
   end
 
   def format_test_summary(_executed_message, _failures_per_suite)
-    stop_build
-    JSON.pretty_generate(@results)
+    EMPTY
   end
 
   def scrub(text)
