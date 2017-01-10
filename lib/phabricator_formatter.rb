@@ -143,12 +143,20 @@ class PhabricatorFormatter < XCPretty::Formatter
     EMPTY
   end
 
+  def format_compile_warning(_file, _file_path, _reason, _line, _cursor)
+    EMPTY
+  end
+
   def format_ld_warning(_reason)
     EMPTY
   end
 
   def format_test_summary(_executed_message, _failures_per_suite)
     EMPTY
+  end
+
+  def format_will_not_be_code_signed(_message)
+      EMPTY
   end
 
   def scrub(text)
